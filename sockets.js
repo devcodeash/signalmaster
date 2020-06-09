@@ -47,7 +47,7 @@ module.exports = function (server, config) {
             }
         }
 
-        function join(name, cb) {
+        function join(name, extras, cb) {
             // sanity check
             if (typeof name !== 'string') return;
             // check if maximum number of clients reached
@@ -61,6 +61,7 @@ module.exports = function (server, config) {
             safeCb(cb)(null, describeRoom(name));
             client.join(name);
             client.room = name;
+            client.extras = extras || {};
         }
 
         // we don't want to pass "leave" directly because the
@@ -132,6 +133,7 @@ module.exports = function (server, config) {
         };
         Object.keys(clients).forEach(function (id) {
             result.clients[id] = adapter.nsp.connected[id].resources;
+            result.clients[id].extras = adapter.nsp.connected[id].extras || {};
         });
         return result;
     }
