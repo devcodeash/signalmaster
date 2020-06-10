@@ -68,7 +68,7 @@ module.exports = function (server, config, hooks) {
             client.room = name;
             client.extras = extras || {};
 
-            if (hooks.joinedRoom) {
+            if (hooks && hooks.joinedRoom) {
                 hooks.joinedRoom({
                     roomName: name, 
                     userId: extras && extras.userId, 
@@ -82,7 +82,7 @@ module.exports = function (server, config, hooks) {
         client.on('disconnect', function () {
             removeFeed();
 
-            if (hooks.disconnected) {
+            if (hooks && hooks.disconnected) {
                 hooks.disconnected(client.id);
             }
         });
@@ -90,7 +90,7 @@ module.exports = function (server, config, hooks) {
         client.on('leave', function () {
             removeFeed();
 
-            if (hooks.leftRoom) {
+            if (hooks && hooks.leftRoom) {
                 hooks.leftRoom(client.id);
             }
         });
@@ -161,8 +161,13 @@ module.exports = function (server, config, hooks) {
     }
 
     function clientsInRoom(name) {
-        return io.sockets.clients(name).length;
+        var count = io.sockets.adapter.rooms[name] ? io.sockets.adapter.rooms[name].length : 0;
+
+        console.log('clients in room', name, count);
+        return count;
     }
+
+    return io;
 
 };
 
