@@ -11,6 +11,7 @@ module.exports = function (server, config) {
             video: true,
             audio: false
         };
+        client.extras = {};
 
         // pass a message to another id
         client.on('message', function (details) {
@@ -33,6 +34,10 @@ module.exports = function (server, config) {
         });
 
         client.on('join', join);
+
+        client.on('getRoomParticipants', function (roomName, cb) {
+            safeCb(cb)(null, describeRoom(roomName));
+        });
 
         function removeFeed(type) {
             if (client.room) {
