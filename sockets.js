@@ -2,7 +2,7 @@ var socketIO = require('socket.io'),
     uuid = require('node-uuid'),
     crypto = require('crypto');
 
-module.exports = function (server, config) {
+module.exports = function (server, config, hooks) {
     var io = socketIO.listen(server);
 
     io.sockets.on('connection', function (client) {
@@ -67,15 +67,32 @@ module.exports = function (server, config) {
             client.join(name);
             client.room = name;
             client.extras = extras || {};
+
+            if (hooks.joinedRoom) {
+                hooks.joinedRoom({
+                    roomName: name, 
+                    userId: extras && extras.userId, 
+                    socketId: client.id
+                });
+            }
         }
 
         // we don't want to pass "leave" directly because the
         // event type string of "socket end" gets passed too.
         client.on('disconnect', function () {
             removeFeed();
+
+            if (hooks.disconnected) {
+                hooks.disconnected(client.id);
+            }
         });
+
         client.on('leave', function () {
             removeFeed();
+
+            if (hooks.leftRoom) {
+                hooks.leftRoom(client.id);
+            }
         });
 
         client.on('create', function (name, cb) {
