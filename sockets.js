@@ -39,6 +39,16 @@ module.exports = function (server, config, hooks) {
             safeCb(cb)(null, describeRoom(roomName));
         });
 
+        client.on('roomStatusUpdate', function (roomName, userId) {
+            if (hooks && hooks.socketUpdate) {
+                hooks.socketUpdate({
+                    roomName: client.room || roomName,
+                    userId: client.extras && client.extras.userId || userId, 
+                    socketId: client.id
+                });
+            }
+        });
+
         function removeFeed(type) {
             if (client.room) {
                 io.sockets.in(client.room).emit('remove', {
