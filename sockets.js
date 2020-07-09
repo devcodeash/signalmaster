@@ -1,6 +1,7 @@
 var socketIO = require('socket.io'),
     uuid = require('node-uuid'),
-    crypto = require('crypto');
+    crypto = require('crypto'),
+    sdptransform = require('sdp-transform');
 
 module.exports = function (server, config, hooks) {
     var io = socketIO.listen(server);
@@ -21,6 +22,12 @@ module.exports = function (server, config, hooks) {
             if (!otherClient) return;
 
             details.from = client.id;
+            try {
+                details = prioritizeVideoCodecs(details);
+                details = setOpusMaxAvgBitrate(details);
+            } catch (err) {
+                console.error(err);
+            }
             otherClient.emit('message', details);
         });
 
@@ -176,6 +183,88 @@ module.exports = function (server, config, hooks) {
 
         console.log('clients in room', name, count);
         return count;
+    }
+
+    function prioritizeVideoCodecs(details) {
+        var priority = config.codecPriority || ["H264", "VP8", "VP9"];  // ordered priority list, first = highest priority
+        var ids = [];
+        Object.keys(priority).forEach(function (key) {
+            var id = findCodecId(details, priority[key]);
+            if (id) {
+                ids.push(id);
+            }
+        });
+        if (ids.length > 0 && details.payload && details.payload.sdp) {
+            var sdp = details.payload.sdp;
+            var m = sdp.match(/m=video\s(\d+)\s[A-Z\/]+\s([0-9\ ]+)/);
+            if (m !== null && m.length == 3) {
+                var candidates = m[2].split(" ");
+                var prioritized = ids;
+                Object.keys(candidates).forEach(function (key) {
+                    if (ids.indexOf(candidates[key]) == -1) {
+                        prioritized.push(candidates[key]);
+                    }
+                });
+                var mPrioritized = m[0].replace(m[2], prioritized.join(" "));
+                console.log("Setting video codec priority. \"%s\"", mPrioritized);
+                details.payload.sdp = sdp.replace(m[0], mPrioritized);
+            }
+        }
+        return details;
+    }
+
+    function setOpusMaxAvgBitrate(details) {
+        var maxAvgBitRate = config.maxAverageBitRate || 0;
+        if (maxAvgBitRate > 0) {
+            var id = findCodecId(details, "opus");
+            if (id && details.payload && details.payload.sdp) {
+                details.payload.sdp = alterFmtpConfig(details.payload.sdp, id, {"maxaveragebitrate": maxAvgBitRate});
+            }
+        }
+        return details;
+    }
+
+    function alterFmtpConfig(sdp, id, params) {
+        if (sdp.length > 0 && id && Object.keys(params).length > 0) {
+            var res = sdptransform.parse(sdp);
+            res.media.forEach(function (item) {
+                item.fmtp.some(function (fmtp) {
+                    if (fmtp.payload == id) {
+                        var origParams = sdptransform.parseParams(fmtp.config);
+                        Object.keys(params).forEach(function (key) {
+                            origParams[key] = params[key];
+                        });
+                        fmtp.config = writeParams(origParams);
+                        console.log("FMTP for payload " + id + " set to: " + fmtp.config);
+                        return true; // break loop
+                    } else {
+                        return false; // continue loop
+                    }
+                });
+            });
+            sdp = sdptransform.write(res);
+        }
+        return sdp;
+    }
+
+    function writeParams(config) {
+        var params = [];
+        Object.keys(config).forEach(function (key) {
+            params.push(key + "=" + config[key]);
+        });
+        return params.join(";");
+    }
+
+    function findCodecId(details, codec) {
+        if (details.payload && details.payload.sdp) {
+            var pattern = "a=rtpmap\\:(\\d+)\\s" + codec + "\\/\\d+";
+            var re = new RegExp(pattern);
+            var m = details.payload.sdp.match(re);
+            if (m !== null && m.length > 0) {
+                return m[1];
+            }
+        }
+        return null;
     }
 
     return io;

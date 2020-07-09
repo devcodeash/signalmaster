@@ -12,5 +12,7 @@
       "urls": "$STUNSERVER_URL"
     }
   ],
-  "turnservers": []
+  "turnservers": [],
+  "codecPriority": ["VP8", "H264", "VP9"],
+  "maxAverageBitRate": 128000
 }
