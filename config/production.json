@@ -13,6 +13,6 @@
     }
   ],
   "turnservers": [],
-  "codecPriority": ["VP8", "H264", "VP9"],
-  "maxAverageBitRate": 128000
+  "codecPriority": ["H264", "VP8", "VP9"],
+  "maxAverageBitRate": 32000
 }
